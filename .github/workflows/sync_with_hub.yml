@@ -9,6 +9,8 @@ on:
       - Makefile
       - pyproject.toml
       - .gitignore
+      - .github/workflows/sync_with_hub.yml
+      - training_so_vits_svc_fork.ipynb
 
 jobs:
   build:
