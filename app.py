@@ -148,7 +148,7 @@ def predict_song_from_yt(
     absolute_thresh: bool = False,
 ):
     original_track_filepath = download_youtube_clip(ytid, start, end, "track.wav", force=True)
-    vox_wav, inst_wav = extract_vocal_demucs(demucs_model, original_track_filepath, out_dir="./stems")
+    vox_wav, inst_wav = extract_vocal_demucs(demucs_model, original_track_filepath)
     if transpose != 0:
         inst_wav = librosa.effects.pitch_shift(inst_wav.T, sr=model.target_sample, n_steps=transpose).T
     cloned_vox = model.infer_silence(

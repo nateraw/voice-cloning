@@ -1,0 +1,24 @@
+name: Sync with Hugging Face Hub
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - README.md
+      - Makefile
+      - pyproject.toml
+      - .gitignore
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Sync custom_pipeline with Hugging Face
+      uses: nateraw/huggingface-sync-action@v0.0.4
+      with:
+        github_repo_id: nateraw/voice-cloning
+        huggingface_repo_id: nateraw/voice-cloning
+        repo_type: space
+        space_sdk: gradio
+        hf_token: ${{ secrets.HF_TOKEN }}
