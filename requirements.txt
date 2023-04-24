@@ -1,0 +1,6 @@
+so-vits-svc-fork
+gradio
+huggingface_hub
+yt-dlp
+demucs
+gradio
