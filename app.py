@@ -195,9 +195,17 @@ def predict_song_from_yt(
     return (model.target_sample, full_song), (model.target_sample, cloned_vox)
 
 
+SPACE_ID = "nateraw/voice-cloning"
 description = f"""
-This app uses models trained with so-vits-svc-fork to clone your voice. Model currently being used is https://hf.co/{repo_id}.
-To change the model being served, duplicate the space and update the `repo_id` in `app.py`.
+# Attention - This Space may be slow in the shared UI if there is a long queue. To speed it up, you can duplicate and use it with a paid private T4 GPU.
+
+<center><a class="duplicate-button" style="display:inline-block" target="_blank" href="https://huggingface.co/spaces/{SPACE_ID}?duplicate=true"><img src="https://img.shields.io/badge/-Duplicate%20Space-blue?labelColor=white&style=flat&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAP5JREFUOE+lk7FqAkEURY+ltunEgFXS2sZGIbXfEPdLlnxJyDdYB62sbbUKpLbVNhyYFzbrrA74YJlh9r079973psed0cvUD4A+4HoCjsA85X0Dfn/RBLBgBDxnQPfAEJgBY+A9gALA4tcbamSzS4xq4FOQAJgCDwV2CPKV8tZAJcAjMMkUe1vX+U+SMhfAJEHasQIWmXNN3abzDwHUrgcRGmYcgKe0bxrblHEB4E/pndMazNpSZGcsZdBlYJcEL9Afo75molJyM2FxmPgmgPqlWNLGfwZGG6UiyEvLzHYDmoPkDDiNm9JR9uboiONcBXrpY1qmgs21x1QwyZcpvxt9NS09PlsPAAAAAElFTkSuQmCC&logoWidth=14" alt="Duplicate Space"></a></center>
+
+## This app uses models trained with [so-vits-svc-fork](https://github.com/voicepaw/so-vits-svc-fork) to clone a voice. Model currently being used is https://hf.co/{repo_id}.
+
+#### To change the model being served, duplicate the space and update the `repo_id`/other settings in `app.py`.
+
+#### Train Your Own: [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/nateraw/voice-cloning/blob/main/training_so_vits_svc_fork.ipynb)
 """.strip()
 
 article = """
