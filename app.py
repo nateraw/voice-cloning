@@ -14,12 +14,23 @@ from so_vits_svc_fork.hparams import HParams
 from so_vits_svc_fork.inference.core import Svc
 
 
-##########################################################
-# REPLACE THESE VALUES TO CHANGE THE MODEL REPO/CKPT NAME
-##########################################################
+###################################################################
+# REPLACE THESE VALUES TO CHANGE THE MODEL REPO/CKPT NAME/SETTINGS
+###################################################################
+# The Hugging Face Hub repo ID
 repo_id = "dog/kanye"
+# If None, Uses latest ckpt in the repo
 ckpt_name = None
-##########################################################
+# If None, Uses "kmeans.pt" if it exists in the repo
+cluster_model_name = None
+# Set the default f0 type to use - use the one it was trained on.
+# The default for so-vits-svc-fork is "dio".
+# Options: "crepe", "crepe-tiny", "parselmouth", "dio", "harvest"
+default_f0_method = "crepe"
+# The default ratio of cluster inference to SVC inference.
+# If cluster_model_name is not found in the repo, this is set to 0.
+default_cluster_infer_ratio = 0.5
+###################################################################
 
 # Figure out the latest generator by taking highest value one.
 # Ex. if the repo has: G_0.pth, G_100.pth, G_200.pth, we'd use G_200.pth
@@ -33,12 +44,21 @@ if ckpt_name is None:
     )[-1]
     ckpt_name = f"G_{latest_id}.pth"
 
+cluster_model_name = cluster_model_name or "kmeans.pt"
+if cluster_model_name in list_repo_files(repo_id):
+    print(f"Found Cluster model - Downloading {cluster_model_name} from {repo_id}")
+    cluster_model_path = hf_hub_download(repo_id, cluster_model_name)
+else:
+    print(f"Could not find {cluster_model_name} in {repo_id}. Using None")
+    cluster_model_path = None
+default_cluster_infer_ratio = default_cluster_infer_ratio if cluster_model_path else 0
+
 generator_path = hf_hub_download(repo_id, ckpt_name)
 config_path = hf_hub_download(repo_id, "config.json")
 hparams = HParams(**json.loads(Path(config_path).read_text()))
 speakers = list(hparams.spk.keys())
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = Svc(net_g_path=generator_path, config_path=config_path, device=device, cluster_model_path=None)
+model = Svc(net_g_path=generator_path, config_path=config_path, device=device, cluster_model_path=cluster_model_path)
 demucs_model = get_model(DEFAULT_MODEL)
 
 
@@ -133,7 +153,7 @@ def predict(
 
 
 def predict_song_from_yt(
-    ytid,
+    ytid_or_url,
     start,
     end,
     speaker=speakers[0],
@@ -147,7 +167,14 @@ def predict_song_from_yt(
     chunk_seconds: float = 0.5,
     absolute_thresh: bool = False,
 ):
-    original_track_filepath = download_youtube_clip(ytid, start, end, "track.wav", force=True)
+    original_track_filepath = download_youtube_clip(
+        ytid_or_url,
+        start,
+        end,
+        "track.wav",
+        force=True,
+        url_base="" if ytid_or_url.startswith("http") else "https://www.youtube.com/watch?v=",
+    )
     vox_wav, inst_wav = extract_vocal_demucs(demucs_model, original_track_filepath)
     if transpose != 0:
         inst_wav = librosa.effects.pitch_shift(inst_wav.T, sr=model.target_sample, n_steps=transpose).T
@@ -187,9 +214,13 @@ interface_mic = gr.Interface(
         gr.Audio(type="filepath", source="microphone", label="Source Audio"),
         gr.Slider(-12, 12, value=0, step=1, label="Transpose (Semitones)"),
         gr.Checkbox(False, label="Auto Predict F0"),
-        gr.Slider(0.0, 1.0, value=0.0, step=0.1, label="cluster infer ratio"),
+        gr.Slider(0.0, 1.0, value=default_cluster_infer_ratio, step=0.1, label="cluster infer ratio"),
         gr.Slider(0.0, 1.0, value=0.4, step=0.1, label="noise scale"),
-        gr.Dropdown(choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"], value="dio", label="f0 method"),
+        gr.Dropdown(
+            choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"],
+            value=default_f0_method,
+            label="f0 method",
+        ),
     ],
     outputs="audio",
     title="Voice Cloning",
@@ -203,9 +234,13 @@ interface_file = gr.Interface(
         gr.Audio(type="filepath", source="upload", label="Source Audio"),
         gr.Slider(-12, 12, value=0, step=1, label="Transpose (Semitones)"),
         gr.Checkbox(False, label="Auto Predict F0"),
-        gr.Slider(0.0, 1.0, value=0.0, step=0.1, label="cluster infer ratio"),
+        gr.Slider(0.0, 1.0, value=default_cluster_infer_ratio, step=0.1, label="cluster infer ratio"),
         gr.Slider(0.0, 1.0, value=0.4, step=0.1, label="noise scale"),
-        gr.Dropdown(choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"], value="dio", label="f0 method"),
+        gr.Dropdown(
+            choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"],
+            value=default_f0_method,
+            label="f0 method",
+        ),
     ],
     outputs="audio",
     title="Voice Cloning",
@@ -215,23 +250,30 @@ interface_file = gr.Interface(
 interface_yt = gr.Interface(
     predict_song_from_yt,
     inputs=[
-        "text",
+        gr.Textbox(
+            label="YouTube URL or ID", info="A YouTube URL (or ID) to a song on YouTube you want to clone from"
+        ),
         gr.Number(value=0, label="Start Time (seconds)"),
         gr.Number(value=15, label="End Time (seconds)"),
         gr.Dropdown(speakers, value=speakers[0], label="Target Speaker"),
         gr.Slider(-12, 12, value=0, step=1, label="Transpose (Semitones)"),
         gr.Checkbox(False, label="Auto Predict F0"),
-        gr.Slider(0.0, 1.0, value=0.0, step=0.1, label="cluster infer ratio"),
+        gr.Slider(0.0, 1.0, value=default_cluster_infer_ratio, step=0.1, label="cluster infer ratio"),
         gr.Slider(0.0, 1.0, value=0.4, step=0.1, label="noise scale"),
-        gr.Dropdown(choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"], value="dio", label="f0 method"),
+        gr.Dropdown(
+            choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"],
+            value=default_f0_method,
+            label="f0 method",
+        ),
     ],
     outputs=["audio", "audio"],
     title="Voice Cloning",
     description=description,
     article=article,
     examples=[
-        ["COz9lDCFHjw", 75, 90, speakers[0], 0, False, 0.0, 0.4, "dio"],
-        ["Wvm5GuDfAas", 15, 30, speakers[0], 0, False, 0.0, 0.4, "crepe"],
+        ["COz9lDCFHjw", 75, 90, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
+        ["dQw4w9WgXcQ", 21, 35, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
+        ["Wvm5GuDfAas", 15, 30, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
     ],
 )
 interface = gr.TabbedInterface(
