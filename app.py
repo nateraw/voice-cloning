@@ -161,51 +161,6 @@ def predict(
     )
     return model.target_sample, audio
 
-
-def predict_song_from_yt(
-    ytid_or_url,
-    start,
-    end,
-    speaker=speakers[0],
-    transpose: int = 0,
-    auto_predict_f0: bool = False,
-    cluster_infer_ratio: float = 0,
-    noise_scale: float = 0.4,
-    f0_method: str = "dio",
-    db_thresh: int = -40,
-    pad_seconds: float = 0.5,
-    chunk_seconds: float = 0.5,
-    absolute_thresh: bool = False,
-):
-    end = min(start + duration_limit, end)
-    original_track_filepath = download_youtube_clip(
-        ytid_or_url,
-        start,
-        end,
-        "track.wav",
-        force=True,
-        url_base="" if ytid_or_url.startswith("http") else "https://www.youtube.com/watch?v=",
-    )
-    vox_wav, inst_wav = extract_vocal_demucs(demucs_model, original_track_filepath)
-    if transpose != 0:
-        inst_wav = librosa.effects.pitch_shift(inst_wav.T, sr=model.target_sample, n_steps=transpose).T
-    cloned_vox = model.infer_silence(
-        vox_wav.astype(np.float32),
-        speaker=speaker,
-        transpose=transpose,
-        auto_predict_f0=auto_predict_f0,
-        cluster_infer_ratio=cluster_infer_ratio,
-        noise_scale=noise_scale,
-        f0_method=f0_method,
-        db_thresh=db_thresh,
-        pad_seconds=pad_seconds,
-        chunk_seconds=chunk_seconds,
-        absolute_thresh=absolute_thresh,
-    )
-    full_song = inst_wav + np.expand_dims(cloned_vox, 1)
-    return (model.target_sample, full_song), (model.target_sample, cloned_vox)
-
-
 SPACE_ID = "nateraw/voice-cloning"
 description = f"""
 # Attention - This Space may be slow in the shared UI if there is a long queue. To speed it up, you can duplicate and use it with a paid private T4 GPU.
@@ -264,38 +219,9 @@ interface_file = gr.Interface(
     description=description,
     article=article,
 )
-interface_yt = gr.Interface(
-    predict_song_from_yt,
-    inputs=[
-        gr.Textbox(
-            label="YouTube URL or ID", info="A YouTube URL (or ID) to a song on YouTube you want to clone from"
-        ),
-        gr.Number(value=0, label="Start Time (seconds)"),
-        gr.Number(value=15, label="End Time (seconds)"),
-        gr.Dropdown(speakers, value=speakers[0], label="Target Speaker"),
-        gr.Slider(-12, 12, value=0, step=1, label="Transpose (Semitones)"),
-        gr.Checkbox(False, label="Auto Predict F0"),
-        gr.Slider(0.0, 1.0, value=default_cluster_infer_ratio, step=0.1, label="cluster infer ratio"),
-        gr.Slider(0.0, 1.0, value=0.4, step=0.1, label="noise scale"),
-        gr.Dropdown(
-            choices=["crepe", "crepe-tiny", "parselmouth", "dio", "harvest"],
-            value=default_f0_method,
-            label="f0 method",
-        ),
-    ],
-    outputs=["audio", "audio"],
-    title="Voice Cloning",
-    description=description,
-    article=article,
-    examples=[
-        ["COz9lDCFHjw", 75, 90, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
-        ["dQw4w9WgXcQ", 21, 35, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
-        ["Wvm5GuDfAas", 15, 30, speakers[0], 0, False, default_cluster_infer_ratio, 0.4, default_f0_method],
-    ],
-)
 interface = gr.TabbedInterface(
-    [interface_mic, interface_file, interface_yt],
-    ["Clone From Mic", "Clone From File", "Clone Song From YouTube"],
+    [interface_mic, interface_file],
+    ["Clone From Mic", "Clone From File"],
 )
 
 
