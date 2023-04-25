@@ -19,19 +19,26 @@ from so_vits_svc_fork.inference.core import Svc
 ###################################################################
 # The Hugging Face Hub repo ID
 repo_id = "dog/kanye"
+
 # If None, Uses latest ckpt in the repo
 ckpt_name = None
+
 # If None, Uses "kmeans.pt" if it exists in the repo
 cluster_model_name = None
+
 # Set the default f0 type to use - use the one it was trained on.
 # The default for so-vits-svc-fork is "dio".
 # Options: "crepe", "crepe-tiny", "parselmouth", "dio", "harvest"
 default_f0_method = "crepe"
+
 # The default ratio of cluster inference to SVC inference.
 # If cluster_model_name is not found in the repo, this is set to 0.
 default_cluster_infer_ratio = 0.5
+
 # Limit on duration of audio at inference time. increase if you can
-duration_limit = 30
+# In this parent app, we set the limit with an env var to 30 seconds
+# If you didnt set env var + you go OOM try changing 9e9 to <=300ish
+duration_limit = int(os.environ.get("MAX_DURATION_SECONDS", 9e9))
 ###################################################################
 
 # Figure out the latest generator by taking highest value one.
